@@ -70,9 +70,15 @@ def show_data(call):
     id_of_user = str(call.from_user.id)
     name_of_user = Clients.get(Clients.userid_tg == id_of_user).full_name
     phone_of_user = Clients.get(Clients.userid_tg == id_of_user).phone
+    appointments = ""
+    appointments_user = Appointments.select().where(Appointments.userid_id == id_of_user)
+    for appointment in appointments_user:
+        date_and_time = f"\n{appointment.date} - {appointment.time}"
+        appointments = appointments + date_and_time
     text = f"""
 Ваше полное имя: <b>{name_of_user}</b>.
 Ваш номер телефона: <b>{phone_of_user}</b>.
+Вы записаны на следующее время: <b>{appointments}</b>.
 """
     bot.send_message(call.message.chat.id, text, reply_markup=markup_adder(), parse_mode="HTML")
 
@@ -129,7 +135,7 @@ def new_appointment(call):
 
     for item in weekdays_list:
         for key, value in item.items():
-            cursor.execute("select time from appointments where date = '%s'" % key)
+            cursor.execute("SELECT time FROM appointments WHERE date = '%s'" % key)
             records = cursor.fetchall()
             records_list = [i[0] for i in records]
             busy_times_set = set()
@@ -153,7 +159,7 @@ def scheduler(call):
     id_of_user = str(call.from_user.id)
     name_of_user = Clients.get(Clients.userid_tg == id_of_user).full_name
     cursor = db.cursor()
-    cursor.execute("SELECT time from appointments where date = '%s'" % appointment_date)
+    cursor.execute("SELECT time FROM appointments WHERE date = '%s'" % appointment_date)
     records = cursor.fetchall()
     time = [i[0] for i in records]
     busy_times = []
@@ -162,7 +168,7 @@ def scheduler(call):
         busy_times.append(item)
     times = generate_times()
     markup = ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.row_width = 2
+    markup.row_width = 1
     for item in times:
         if item not in busy_times:
             markup.add(item)
