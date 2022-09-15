@@ -1,27 +1,27 @@
-from config import TOKEN
-import telebot
 import datetime as dt
-from models import Clients, Appointments
-from db import db
 
+import telebot
 from telebot.types import (
-InlineKeyboardMarkup,
-InlineKeyboardButton,
-ReplyKeyboardMarkup
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup
 )
+
+from config import TOKEN
+
+from models import Clients, Appointments
+
+
 bot = telebot.TeleBot(TOKEN)
 
 
 @bot.message_handler(commands=["start"])
 def welcome(message):
-    cursor = db.cursor()
     id_of_user = str(message.from_user.id)
-    query = Clients.select().where(Clients.userid_tg == id_of_user)
-    if query.exists():
-        cursor.execute("SELECT full_name FROM clients WHERE userid_tg = '%s'" % id_of_user)
-        fullname = cursor.fetchone()
+    client = Clients.get_or_none(Clients.userid_tg == id_of_user)
+    if client:
         welcome_old = f"""
-Добро пожаловать, <b>{fullname[0]}</b>!
+Добро пожаловать, <b>{client.full_name}</b>!
 С помощью нашего бота Вы можете записаться на приём к стоматологу.
 Пожалуйста, выберите действие, нажав на кнопку ниже:"""
         bot.send_message(message.chat.id, welcome_old, reply_markup=markup_adder(), parse_mode="HTML")
@@ -131,16 +131,13 @@ def new_appointment(call):
     markup.row_width = 1
     times = generate_times()
     times = set(times)
-    cursor = db.cursor()
 
     for item in weekdays_list:
         for key, value in item.items():
-            cursor.execute("SELECT time FROM appointments WHERE date = '%s'" % key)
-            records = cursor.fetchall()
-            records_list = [i[0] for i in records]
+            records = Appointments.select().where(Appointments.date == key)
+            records_list = [i.time for i in records]
             busy_times_set = set()
             for record in records_list:
-                record = (dt.datetime.min + record).time().strftime("%H:%M:%S")
                 busy_times_set.add(record)
             if busy_times_set == times:
                 pass
@@ -158,13 +155,10 @@ def scheduler(call):
     message = call.message
     id_of_user = str(call.from_user.id)
     name_of_user = Clients.get(Clients.userid_tg == id_of_user).full_name
-    cursor = db.cursor()
-    cursor.execute("SELECT time FROM appointments WHERE date = '%s'" % appointment_date)
-    records = cursor.fetchall()
-    time = [i[0] for i in records]
+    records = Appointments.select().where(Appointments.date == appointment_date)
+    time = [i.time for i in records]
     busy_times = []
     for item in time:
-        item = (dt.datetime.min + item).time().strftime("%H:%M:%S")
         busy_times.append(item)
     times = generate_times()
     markup = ReplyKeyboardMarkup(one_time_keyboard=True)
